@@ -33,7 +33,7 @@ function update_script() {
   fi
 
   # Get the latest version from GitHub
-  RELEASE=$(curl -s https://api.github.com/repos/hedgedoc/hedgedoc/releases/latest | grep "tag_name" | awk '{print substr($2, 3, length($2)-4) }')
+  RELEASE=$(curl -s https://api.github.com/repos/hedgedoc/hedgedoc/releases/latest | grep "tag_name" | awk '\''{print substr($2, 2, length($2)-3)}'\'' }')
   
   # Check if an update is required
   if [[ "${RELEASE}" != "$(cat /opt/hedgedoc/version.txt)" ]] || [[ ! -f /opt/hedgedoc/version.txt ]]; then
