@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# IMPORTANT: For development, the URL below MUST point to your fork.
-# I have pre-filled it with your repository path.
+# This script is now configured for development on a fork.
+# It will tell the helper scripts to use your repository.
 #
-source <(curl -fsSL https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main/misc/build.func)
+export CUSTOM_REPO="https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main"
+source <(curl -fsSL ${CUSTOM_REPO}/misc/build.func)
 
 # --- App Default Values ---
 APP="HedgeDoc"
@@ -45,4 +46,3 @@ msg_ok "Completed Successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it using the following URL:${CL}"
 echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:3000${CL}"
-
