@@ -1,85 +1,142 @@
 #!/usr/bin/env bash
-# Corrected source URL to point to your fork for development
-source <(curl -fsSL https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main/misc/build.func)
 # Copyright (c) 2021-2025 community-scripts ORG
-# Author: Gemini
-# License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
-# Source: https://github.com/hedgedoc/hedgedoc
+# This is a self-contained script for creating a HedgeDoc LXC container.
+# All necessary functions are included here to avoid external calls.
 
-# App Default Values
-APP="HedgeDoc"
-var_tags="${var_tags:-collaboration;markdown}"
-var_cpu="${var_cpu:-2}"
-var_ram="${var_ram:-2048}"
-var_disk="${var_disk:-4}"
-var_os="${var_os:-debian}"
-var_version="${var_version:-12}"
-var_unprivileged="${var_unprivileged:-1}"
+# --- Embedded Functions ---
+msg_info() { echo -e "\n[INFO] $1"; }
+msg_ok() { echo -e "[OK] $1"; }
+msg_error() { echo -e "\n[ERROR] $1" >&2; }
 
-header_info "$APP"
-variables
-color
-catch_errors
+# --- Main Script Logic ---
+# Get the next available VM/CT ID from Proxmox
+msg_info "Searching for the next available CT ID..."
+if ! NEXTID=$(pvesh get /cluster/nextid); then
+    msg_error "Could not get next available CT ID from pvesh."
+    exit 1
+fi
+msg_ok "Found next available CT ID: ${NEXTID}"
 
-function update_script() {
-  header_info
-  check_container_storage
-  check_container_resources
+# Create the HedgeDoc LXC Container
+msg_info "Creating HedgeDoc LXC container..."
+pct create $NEXTID local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
+    --hostname hedgedoc \
+    --cores 2 \
+    --memory 2048 \
+    --swap 512 \
+    --rootfs local-lvm:4 \
+    --net0 name=eth0,bridge=vmbr0,ip=dhcp \
+    --onboot 1 \
+    --unprivileged 1 \
+    --start 1
 
-  # Check if HedgeDoc installation is present
-  if [[ ! -d /opt/hedgedoc ]]; then
-    msg_error "No ${APP} Installation Found!"
-    exit
-  fi
+if [ $? -ne 0 ]; then
+    msg_error "Failed to create HedgeDoc LXC container."
+    exit 1
+fi
+msg_ok "HedgeDoc container created with ID ${NEXTID}."
 
-  # Get the latest version from GitHub
-  RELEASE=$(curl -s https://api.github.com/repos/hedgedoc/hedgedoc/releases/latest | grep "tag_name" | awk '\''{print substr($2, 2, length($2)-3)}'\'' }')
-  
-  # Check if an update is required
-  if [[ "${RELEASE}" != "$(cat /opt/hedgedoc/version.txt)" ]] || [[ ! -f /opt/hedgedoc/version.txt ]]; then
-    msg_info "Stopping ${APP}..."
-    systemctl stop hedgedoc
-    
-    msg_info "Backing up existing installation..."
-    mv /opt/hedgedoc "/opt/hedgedoc_backup_$(date +%F_%H-%M-%S)"
-    
-    msg_info "Updating ${APP} to v${RELEASE}..."
-    wget -qO- "https://github.com/hedgedoc/hedgedoc/releases/download/${RELEASE}/hedgedoc-${RELEASE}.tar.gz" | tar -xz -C /opt
-    mv /opt/package /opt/hedgedoc
+# Wait a few seconds for the container to initialize its network
+msg_info "Waiting for container to start and get an IP address..."
+sleep 8
 
-    # Restore config and uploads
-    if [ -d "/opt/hedgedoc_backup_$(date +%F_%H-%M-%S)/public/uploads" ]; then
-      cp -r "/opt/hedgedoc_backup_$(date +%F_%H-%M-%S)/public/uploads" /opt/hedgedoc/public/
-    fi
-     if [ -f "/opt/hedgedoc_backup_$(date +%F_%H-%M-%S)/config.json" ]; then
-      cp "/opt/hedgedoc_backup_$(date +%F_%H-%M-%S)/config.json" /opt/hedgedoc/
-    fi
+# The installation script to be run inside the container
+INSTALL_SCRIPT='
+#!/usr/bin/env bash
+set -e
+export DEBIAN_FRONTEND=noninteractive
 
-    (
-      cd /opt/hedgedoc
-      msg_info "Installing dependencies..."
-      ./bin/setup
-    )
-    
-    chown -R hedgedoc:hedgedoc /opt/hedgedoc
+# --- Installation ---
+echo "--- Starting HedgeDoc Installation Inside Container ---"
 
-    msg_info "Starting ${APP}..."
-    systemctl start hedgedoc
-    
-    echo "${RELEASE}" > /opt/hedgedoc/version.txt
-    
-    msg_ok "${APP} updated successfully to v${RELEASE}"
-  else
-    msg_ok "No update required. ${APP} is already at the latest version (v${RELEASE})."
-  fi
-  exit
+echo "Updating package lists..."
+apt-get update >/dev/null
+
+echo "Installing dependencies..."
+apt-get install -y curl wget gnupg git build-essential python npm >/dev/null
+
+echo "Installing latest Node.js and Yarn..."
+npm install -g n >/dev/null
+n lts >/dev/null
+npm install -g yarn >/dev/null
+
+echo "Downloading and extracting HedgeDoc..."
+LATEST_RELEASE=$(curl -s https://api.github.com/repos/hedgedoc/hedgedoc/releases/latest | grep "tag_name" | awk '\''{print substr($2, 2, length($2)-3)}'\'')
+wget -qO- "https://github.com/hedgedoc/hedgedoc/releases/download/${LATEST_RELEASE}/hedgedoc-${LATEST_RELEASE}.tar.gz" | tar -xz -C /opt
+mv /opt/package /opt/hedgedoc
+echo "${LATEST_RELEASE}" > /opt/hedgedoc/version.txt
+
+echo "Creating HedgeDoc user..."
+useradd -r -s /bin/false -d /opt/hedgedoc hedgedoc
+chown -R hedgedoc:hedgedoc /opt/hedgedoc
+
+echo "Configuring HedgeDoc..."
+cat <<EOF > /opt/hedgedoc/config.json
+{
+  "production": {
+    "db": {
+      "dialect": "sqlite",
+      "storage": "/opt/hedgedoc/db.hedgedoc.sqlite"
+    },
+    "urlAddPort": true,
+    "domain": "localhost"
+  }
 }
+EOF
+chown hedgedoc:hedgedoc /opt/hedgedoc/config.json
 
-start
-build_container
-description
+echo "Installing HedgeDoc npm dependencies (this may take a moment)..."
+(
+  cd /opt/hedgedoc
+  su -s /bin/bash -c "./bin/setup" hedgedoc
+) >/dev/null
 
-msg_ok "Completed Successfully!\n"
-echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:3000${CL}"
+echo "Creating Systemd service..."
+cat <<EOF > /etc/systemd/system/hedgedoc.service
+[Unit]
+Description=HedgeDoc - Collaborative Markdown Editor
+After=network.target
+
+[Service]
+Type=simple
+User=hedgedoc
+Group=hedgedoc
+WorkingDirectory=/opt/hedgedoc
+ExecStart=/usr/local/bin/node /opt/hedgedoc/app.js
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable -q --now hedgedoc
+
+echo "Cleaning up..."
+apt-get autoremove -y >/dev/null
+apt-get autoclean >/dev/null
+
+echo "--- HedgeDoc Installation Complete ---"
+'
+
+# Push the installation script to the container and execute it
+msg_info "Pushing installation script to the container..."
+pct push $NEXTID <(echo "$INSTALL_SCRIPT") /tmp/install-hedgedoc.sh -p /tmp/install-hedgedoc.sh
+msg_ok "Installation script pushed."
+
+msg_info "Running installation script inside the container..."
+if ! pct exec $NEXTID -- bash /tmp/install-hedgedoc.sh; then
+    msg_error "HedgeDoc installation failed. Please check the container's console."
+    exit 1
+fi
+msg_ok "Installation script finished."
+
+
+# Get container IP
+while [ -z "$IP" ]; do
+  IP=$(pct exec $NEXTID ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+  [ -z "$IP" ] && sleep 1
+done
+
+
+# Final confirmation message
+msg_ok "Deployment successful!"
+echo -e "You can access HedgeDoc at: ${BLU}http://${IP}:3000${CL}"
