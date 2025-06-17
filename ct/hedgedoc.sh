@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# This script has been modified to point directly to your fork for development.
-source <(curl -fsSL https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main/misc/build.func)
 
-# Copyright (c) 2021-2025 community-scripts ORG
-# Author: Gemini & MathDesigns
-# License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
-# Source: https://github.com/hedgedoc/hedgedoc
+# This function overrides the problematic one from the helper script.
+# It prevents the script from trying to download a non-existent logo file.
+function header_info() {
+  echo -e "      __ _      __         __      \n     / /(_)____/ /  ____  / /_____ \n    / / / / ___/ /  / __ \/ __/ __ \\\n   / /_/ / /  / /__/ /_/ / /_/ /_/ /\n  /____/_/   /____/\\____/\\__/\\____/ \n"
+  echo -e " \033[1;33mThis script will create a new HedgeDoc LXC Container.\033[0m"
+}
+
+# --- IMPORTANT ---
+# For development, the URL below MUST point to your fork.
+# I have set it to your 'MathDesigns' repository.
+source <(curl -fsSL https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main/misc/build.func)
 
 # --- App Default Values ---
 APP="HedgeDoc"
@@ -16,13 +21,10 @@ var_disk="${var_disk:-4}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-12}"
 var_unprivileged="${var_unprivileged:-1}"
-export VERBOSE="yes"
+export VERBOSE="yes" # Keep verbose logging for now
 
 # --- Script Functions ---
-# The 'header_info' call has been removed to prevent the 404 error on the logo file.
-echo -e "      __ _      __         __      \n     / /(_)____/ /  ____  / /_____ \n    / / / / ___/ /  / __ \/ __/ __ \\\n   / /_/ / /  / /__/ /_/ / /_/ /_/ /\n  /____/_/   /____/\\____/\\__/\\____/ \n\n"
-echo -e " \033[1;33mThis script will create a new HedgeDoc LXC Container.\033[0m"
-
+# Call the functions from the sourced helper script
 variables
 color
 catch_errors
