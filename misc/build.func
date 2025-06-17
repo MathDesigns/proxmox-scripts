@@ -5,7 +5,7 @@
 # --- Development Fork Fix ---
 # Checks for a CUSTOM_REPO variable. If it exists, it uses your fork's URL.
 # If not, it defaults to the official repository.
-REPO_URL=${CUSTOM_REPO:-"https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main/"}
+REPO_URL=${CUSTOM_REPO:-"https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main"}
 
 variables() {
   NSAPP=$(echo "${APP,,}" | tr -d ' ')              # This function sets the NSAPP variable by converting the value of the APP variable to lowercase and removing any spaces.
