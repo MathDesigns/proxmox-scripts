@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# IMPORTANT: For development, change the URL to your fork.
-# Example: source <(curl -fsSL https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main/misc/build.func)
+#
+# IMPORTANT: For development, change the URL below to point to your fork's 'main' branch.
+#
+# EXAMPLE:
+# source <(curl -fsSL https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main/misc/build.func)
+#
 source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func)
-# Copyright (c) 2021-2025 community-scripts ORG
-# Author: Gemini
-# License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
-# Source: https://github.com/hedgedoc/hedgedoc
 
-# App Default Values
+# --- App Default Values ---
 APP="HedgeDoc"
 var_tags="${var_tags:-collaboration;markdown}"
 var_cpu="${var_cpu:-2}"
@@ -16,7 +16,10 @@ var_disk="${var_disk:-4}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-12}"
 var_unprivileged="${var_unprivileged:-1}"
+# Enable verbose logging for debugging
+export VERBOSE="yes"
 
+# --- Script Functions ---
 header_info "$APP"
 variables
 color
@@ -32,11 +35,12 @@ function update_script() {
     exit
   fi
   
-  # This will execute the update via the installation script
+  # Execute the update function within the installer script
   bash /usr/local/bin/hedgedoc-install.sh -u
   exit
 }
 
+# --- Main Execution ---
 start
 build_container
 description

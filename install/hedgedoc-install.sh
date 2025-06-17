@@ -9,11 +9,12 @@ color
 verb_ip6
 catch_errors
 
+# Enable verbose mode to see all commands being executed
 if [[ "$VERBOSE" == "yes" ]]; then
   set -x
 fi
 
-# -- Installation Function ---
+# --- Installation Function ---
 function install_hedgedoc() {
   msg_info "Installing Dependencies..."
   $STD apt-get update
@@ -25,13 +26,15 @@ function install_hedgedoc() {
 
   msg_info "Installing HedgeDoc..."
   LATEST_RELEASE=$(curl -s https://api.github.com/repos/hedgedoc/hedgedoc/releases/latest | grep "tag_name" | awk '{print substr($2, 2, length($2)-3)}')
-  wget -qO- "https://github.com/hedgedoc/hedgedoc/releases/download/${LATEST_RELEASE}/hedgedoc-${LATEST_RELEASE}.tar.gz" | tar -xz -C /opt
+  DOWNLOAD_URL="https://github.com/hedgedoc/hedgedoc/releases/download/${LATEST_RELEASE}/hedgedoc-${LATEST_RELEASE}.tar.gz"
+  msg_info "Downloading from ${DOWNLOAD_URL}"
+  wget -qO- "${DOWNLOAD_URL}" | tar -xz -C /opt
   mv /opt/package /opt/hedgedoc
   echo "${LATEST_RELEASE}" > /opt/hedgedoc/version.txt
   msg_ok "HedgeDoc v${LATEST_RELEASE} Installed."
 
   msg_info "Creating HedgeDoc User..."
-  useradd -r -s /bin/false -d /opt/hedgedoc hedgedoc
+  useradd -r -s /bin/false -d /opt/hedgedoc hedgedoc &>/dev/null
   chown -R hedgedoc:hedgedoc /opt/hedgedoc
   msg_ok "Created HedgeDoc User."
 
@@ -51,7 +54,7 @@ EOF
   chown hedgedoc:hedgedoc /opt/hedgedoc/config.json
   msg_ok "Configured HedgeDoc."
 
-  msg_info "Installing HedgeDoc Dependencies..."
+  msg_info "Installing HedgeDoc Dependencies (this may take a moment)..."
   (
     cd /opt/hedgedoc
     su -s /bin/bash -c "./bin/setup" hedgedoc
