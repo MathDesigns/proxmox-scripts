@@ -9,7 +9,6 @@ color
 verb_ip6
 catch_errors
 
-# Enable verbose mode to see all commands being executed
 if [[ "$VERBOSE" == "yes" ]]; then
   set -x
 fi
