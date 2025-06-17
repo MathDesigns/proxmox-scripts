@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func)
+# Corrected source URL to point to your fork for development
+source <(curl -fsSL https://raw.githubusercontent.com/MathDesigns/proxmox-scripts/main/misc/build.func)
 # Copyright (c) 2021-2025 community-scripts ORG
 # Author: Gemini
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
